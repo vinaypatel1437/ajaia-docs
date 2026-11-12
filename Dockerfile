@@ -1,8 +1,11 @@
 # ---- build: install all deps, build the client bundle ----
 FROM node:20-slim AS build
+# Toolchain so better-sqlite3 can compile from source if its prebuilt binary can't be fetched.
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --no-audit --no-fund
 COPY . .
 RUN npm run build && npm prune --omit=dev
 
