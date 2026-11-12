@@ -1,0 +1,14 @@
+# Render Blueprint: New > Blueprint > point at this repo.
+services:
+  - type: web
+    name: ajaia-docs
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: COOKIE_SECRET
+        generateValue: true
+      # Free plan has an ephemeral filesystem: data resets on redeploy / spin-down.
+      # On a paid plan, add a disk mounted at /data to make it durable.
+      - key: DATABASE_FILE
+        value: /data/ajaia.db

@@ -1,0 +1,36 @@
+# Submission: Ajaia Docs
+
+**Live URL:** `<DEPLOYMENT_URL>`
+**Video:** see `VIDEO_URL.txt`
+**Demo accounts (no password; pick one on the sign-in screen):** alice@ajaia.dev, bob@ajaia.dev, carol@ajaia.dev. Alice owns the welcome doc and Bob can edit it. Use a second browser or incognito window to act as a second user.
+
+## Included
+
+| Item | Location |
+|---|---|
+| Source code | `server/`, `client/`, `e2e/` |
+| Setup & run instructions | `README.md` |
+| Architecture note | `ARCHITECTURE.md` |
+| AI workflow note | `AI_WORKFLOW.md` |
+| Walkthrough video URL | `VIDEO_URL.txt` |
+| Screenshots | `docs/screenshots/` (login, home, editor, share dialog, shared list, view-only, import) |
+| Automated tests | `server/test/api.test.ts` (12 API tests), `e2e/smoke.mjs` (browser flow) |
+| Deployment config | `Dockerfile`, `render.yaml` |
+
+## Status
+
+**Working end to end**
+- Create, rename, edit, autosave, reopen and delete documents. Rich text: bold, italic, underline, strike, H1–H3, bulleted and numbered lists, quote, divider.
+- Import .txt / .md / .docx as a new document (max 5 MB). Other types are rejected with a message.
+- Sharing by email with an owner and Can edit / Can view roles. Roles can be changed and access removed. *My documents* and *Shared with me* are separate lists, and viewers get a read-only editor.
+- SQLite persistence for documents, formatting and shares.
+- Server-side access checks, input validation, HTML sanitization, and conflict detection (409) with a resolution UI.
+- Stretch: Markdown export, and role-based permissions (viewer/editor).
+
+**Partial / known limitations**
+- No real-time co-editing. Concurrent edits are detected and resolved, and idle clients pick up changes within about 8s.
+- Auth is mocked with seeded users.
+- .docx images and tables are not imported.
+- On Render's free plan, data resets when the instance redeploys or spins down. Mount a volume at `/data` for durability.
+
+**Next 2–4 hours:** version history (snapshots per version), presence indicators over SSE, e2e in CI, real auth plus Postgres.
