@@ -78,7 +78,8 @@ export function createApp({ db, cookieSecret, secureCookies = false }: AppOption
     res.status(204).end();
   });
 
-  app.get('/api/me', requireUser, (req, res) => { res.json({ user: req.user }); });
+  // Returns { user: null } rather than 401 so the client can check session state without error noise.
+  app.get('/api/me', (req, res) => { res.json({ user: req.user ?? null }); });
 
   app.get('/api/users', (_req, res) => {
     // Public list of demo accounts: powers the login picker and share suggestions.
