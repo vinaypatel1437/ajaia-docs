@@ -28,7 +28,7 @@ Auth is mocked: pick an account on the sign-in screen (no password).
 - **Live collaboration indicators** (Server-Sent Events): avatars of who's in the document, a green "is editing" dot, and instant sync. Collaborators' saves, comment changes and access changes appear in under a second. If your access is revoked, your editor locks immediately.
 - **Comments**: select text and comment. Anyone with access (including viewers) can comment. Click a comment to jump to its text. Resolve, reopen, and delete according to role.
 - **Version history**: automatic snapshots, one per editing session (when a different person starts editing, or every 5 minutes). Preview any version read-only and restore it; the replaced state stays in history.
-- **Export** to Markdown (.md) or PDF (via the browser's print dialog, with a clean print layout).
+- **Export** to Markdown (.md) or PDF (.pdf). The PDF is generated on the server as a real text document: selectable text, headings, lists, bold/italic/underline/strike, quotes, code blocks and page numbers. It downloads directly.
 
 ## Run locally
 
@@ -62,7 +62,7 @@ npm test             # API integration tests (Vitest + Supertest, in-memory SQLi
 npm run typecheck
 ```
 
-The 17 API tests cover:
+The 19 API tests cover:
 - auth, and create/rename/edit/reopen with formatting preserved
 - HTML sanitization and validation
 - 409 conflict detection
@@ -72,13 +72,14 @@ The 17 API tests cover:
 - version-history coalescing and restore, using a fake clock
 - comment permissions per role
 - presence de-duplication and live save broadcasts
+- PDF export: the downloaded file is parsed and its text and order are checked
 
 **Browser smoke test (optional, needs Google Chrome installed):** start a fresh server, then run the flow end to end. The flow is: 1. Alice creates and formats a doc, reloads, and checks the formatting persisted.
 2. She shares with Bob as a viewer; Bob is read-only.
 3. She upgrades him to editor; Bob's edit reaches Alice live, and she sees his presence.
 4. Bob comments on a selection; Alice sees the comment live, jumps to the quoted text, and resolves it.
 5. Alice restores a version; Bob receives it live.
-6. The print layout is checked.
+6. A PDF export downloads a valid .pdf file.
 7. Alice revokes Bob's access, and his editor locks.
 8. A .md file is imported and a .pdf is rejected.
 

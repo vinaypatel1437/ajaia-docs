@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { getRole, type DB, type DocumentRow, type Role, type UserRow } from './db.js';
 import { Hub, type HubEvent } from './realtime.js';
+import { renderPdf } from './pdf.js';
 import {
   cleanHtml, fileToDocument, htmlToMarkdown, MAX_UPLOAD_BYTES, SUPPORTED_EXTENSIONS, UnsupportedFileError,
 } from './content.js';
@@ -221,9 +222,20 @@ export function createApp({ db, cookieSecret, secureCookies = false, hub = new H
     res.status(204).end();
   });
 
+  const downloadName = (title: string) => title.replace(/[^\w\- ]+/g, ' ').replace(/\s+/g, ' ').trim() || 'document';
+
+  app.get('/api/documents/:id/export.pdf', requireUser, async (req, res) => {
+    const { doc } = loadDoc(req, 'viewer');
+    const pdf = await renderPdf(doc.title, doc.content);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${downloadName(doc.title)}.pdf"`);
+    res.setHeader('Content-Length', String(pdf.length));
+    res.send(pdf);
+  });
+
   app.get('/api/documents/:id/export.md', requireUser, (req, res) => {
     const { doc } = loadDoc(req, 'viewer');
-    const filename = doc.title.replace(/[^\w\- ]+/g, '').trim() || 'document';
+    const filename = downloadName(doc.title);
     res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}.md"`);
     res.send(`# ${doc.title}\n\n${htmlToMarkdown(doc.content)}\n`);

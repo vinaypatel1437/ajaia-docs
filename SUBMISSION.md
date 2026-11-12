@@ -14,7 +14,7 @@
 | AI workflow note | `AI_WORKFLOW.md` |
 | Walkthrough video URL | `VIDEO_URL.txt` |
 | Screenshots | `docs/screenshots/` (login, home, editor, share dialog, shared list, view-only, import, comments, history, mobile) |
-| Automated tests | `server/test/` (17 API tests), `e2e/smoke.mjs` (browser flow covering every feature) |
+| Automated tests | `server/test/` (19 API tests), `e2e/smoke.mjs` (browser flow covering every feature) |
 | Deployment config | `Dockerfile`, `render.yaml` |
 
 ## Status
@@ -29,13 +29,14 @@
   - live collaboration indicators (presence, "is editing", instant sync over SSE)
   - comments on selected text
   - version history with preview and restore
-  - export to Markdown and PDF
+  - export to Markdown and a server-generated PDF download
   - role-based permissions (editor/viewer)
 
 **Partial / known limitations**
 - No simultaneous co-editing (CRDT). Concurrent saves are detected and resolved, and other users' changes arrive live over SSE.
 - Suggestion mode was not built. Comments cover the "propose a change" need.
 - Comments are flat (no threads or @mentions), and the quoted text is not highlighted inside the document.
+- PDF export uses the built-in PDF fonts, which cover Latin text only; other scripts appear as `?`.
 - Auth is mocked with seeded users.
 - .docx images and tables are not imported.
 - On Render's free plan, data resets when the instance redeploys or spins down. Mount a volume at `/data` for durability.

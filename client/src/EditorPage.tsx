@@ -144,11 +144,8 @@ function LoadedEditor({ initial, user }: { initial: Doc; user: User }) {
   };
 
   const exportPdf = async () => {
-    await save.flush();
-    const previous = document.title;
-    document.title = (preview?.title ?? title) || 'document'; // becomes the default PDF filename
-    window.print();
-    document.title = previous;
+    await save.flush(); // export what's on screen, not the last autosave
+    window.location.href = `/api/documents/${doc.id}/export.pdf`;
   };
 
   const openPreview = async (v: VersionSummary | null) => {
@@ -381,7 +378,7 @@ function ExportMenu({ onMarkdown, onPdf }: { onMarkdown: () => void; onPdf: () =
       {open && (
         <span className="menu-list" role="menu">
           <button role="menuitem" onClick={onMarkdown}><Icon name="markdown" size={16} />Markdown<span className="hint">.md</span></button>
-          <button role="menuitem" onClick={onPdf}><Icon name="printer" size={16} />PDF<span className="hint">via print</span></button>
+          <button role="menuitem" onClick={onPdf}><Icon name="file" size={16} />PDF document<span className="hint">.pdf</span></button>
         </span>
       )}
     </span>

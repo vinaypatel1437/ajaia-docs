@@ -36,13 +36,13 @@ React + TipTap (Vite) ──fetch /api──────────▶ Express 
 | Decision | Why |
 |---|---|
 | **TipTap 2 (ProseMirror)** | Schema-based editor, so formatting is structured, not `contentEditable` soup. v2 was chosen over v3 for its stable, well-known React API. |
-| **Store HTML, not ProseMirror JSON** | Import (Markdown/docx → HTML), export (HTML → Markdown) and print all become simple. The sanitizer constrains HTML to the editor schema, so formatting round-trips. JSON would be the better base for CRDTs later. |
+| **Store HTML, not ProseMirror JSON** | Import (Markdown/docx → HTML), export (HTML → Markdown / PDF) all become simple. The sanitizer constrains HTML to the editor schema, so formatting round-trips. JSON would be the better base for CRDTs later. |
 | **SQLite** | Zero-ops, with real constraints: foreign keys with cascade, CHECK on role, composite PK on shares. The SQL is small and portable, so moving to Postgres is mechanical. |
 | **SSE, not WebSockets** | All realtime traffic flows server → client, and writes stay ordinary REST calls with the same validation and access checks. SSE needs no extra library, reconnects by itself, and works through standard proxies. |
 | **Session-based version history** | Autosave fires about once a second, so a snapshot per save would flood the history. A snapshot is taken when a *different person* starts editing, or when the last snapshot is more than 5 minutes old. The tests use an injectable clock. |
 | **Comments anchored by quoted text** | The comment stores the selected text. Clicking it finds and selects that text in the current document, and fails gracefully if the text has since been edited away. This avoids position-mapping machinery while staying useful. |
 | **Viewers can comment** | This matches how review works in practice. Viewers can resolve only their own comments; editors can resolve any; only the comment author or the document owner can delete. |
-| **PDF via the browser's print-to-PDF** | A print stylesheet renders just the page (title + content) with no app chrome. The output is good, and it needs no server-side headless Chrome, which would be heavy and slow on a free host. |
+| **Server-side PDF with pdfkit** (`server/src/pdf.ts`) | It walks the stored HTML and draws a real text PDF: selectable and searchable text, a heading hierarchy, nested lists, quotes, code blocks and page-number footers, downloaded as a file. I rejected headless Chrome (a ~150 MB dependency, slow on free hosts) and client-side html2canvas/jsPDF (blurry, unselectable images of text). Tradeoff: the built-in PDF fonts cover Latin text only, so other scripts render as `?` until a Unicode font is embedded. |
 | **Mocked auth with seeded users** | The assignment is about sharing semantics, not identity. A signed httpOnly cookie carries the user id, and sharing is by email, as it would be with real auth. |
 | **Import creates a new document** | The clearest product behaviour. It reuses the same sanitizer as editor saves. |
 
@@ -71,7 +71,7 @@ The cuts below are deliberate, ranked roughly by how much they would have cost. 
 | **Real authentication** | Orthogonal to what's being evaluated. | Signed httpOnly cookie, server-side checks on every route |
 | **Horizontal scaling** | The SSE hub is in process memory, and SQLite is single-node. | Fine for a single instance. Scaling would need Redis pub/sub and Postgres; the hub interface already isolates this. |
 | **CSRF tokens, rate limiting** | Demo scope. | `SameSite=Lax` cookies and JSON-only write endpoints; size limits on bodies and uploads |
-| **Frontend unit tests, e2e in CI** | Time. | 17 API integration tests, plus a Playwright browser smoke test of every main flow (`npm run e2e`) |
+| **Frontend unit tests, e2e in CI** | Time. | 19 API integration tests, plus a Playwright browser smoke test of every main flow (`npm run e2e`) |
 | **Dark mode, i18n, full accessibility audit** | Polish beyond the core. | Labelled controls, keyboard shortcuts, visible focus rings, responsive down to phone width |
 
 ## What I'd build next (2–4 hours)
@@ -80,3 +80,4 @@ The cuts below are deliberate, ranked roughly by how much they would have cost. 
 2. A diff view between versions, and named versions.
 3. Run `e2e/smoke.mjs` in CI against the Docker image.
 4. Real auth (magic link or OAuth) plus Postgres, for a durable hosted deploy.
+5. Embed a Unicode font (e.g. Noto Sans) in PDF export to support non-Latin scripts.

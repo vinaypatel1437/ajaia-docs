@@ -152,3 +152,41 @@ describe('file import and export', () => {
     expect(res.text).toMatch(/-\s+x/);
   });
 });
+
+describe('pdf export', () => {
+  it('downloads a real PDF whose text, structure order and formatting fonts are preserved', async () => {
+    const { PDFParse } = await import('pdf-parse');
+    const alice = await login('alice@ajaia.dev');
+    const html = '<h1>Quarterly plan</h1><p><strong>Bold goal</strong> and <em>italic</em> and <u>under</u></p>'
+      + '<ul><li><p>First item</p></li><li><p>Second item</p><ol><li><p>Nested step</p></li></ol></li></ul>'
+      + '<blockquote><p>Quoted line</p></blockquote><pre><code>const x = 1;</code></pre><hr><p>Done → ship 你好</p>';
+    const { body } = await alice.post('/api/documents').send({ title: 'Q3 / Plan', content: html }).expect(201);
+
+    const res = await alice.get(`/api/documents/${body.document.id}/export.pdf`)
+      .buffer(true).parse((r, cb) => { const c: Buffer[] = []; r.on('data', (d: Buffer) => c.push(d)); r.on('end', () => cb(null, Buffer.concat(c))); })
+      .expect(200);
+    expect(res.headers['content-type']).toBe('application/pdf');
+    expect(res.headers['content-disposition']).toBe('attachment; filename="Q3 Plan.pdf"');
+    const pdf = res.body as Buffer;
+    expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
+
+    const { text } = await new PDFParse({ data: new Uint8Array(pdf) }).getText();
+    const order = ['Q3 / Plan', 'Quarterly plan', 'Bold goal', 'First item', 'Second item', '1.', 'Nested step', 'Quoted line', 'const x = 1;', 'Done -> ship ??', 'Page 1 of 1'];
+    let at = -1;
+    for (const piece of order) {
+      const next = text.indexOf(piece, at + 1);
+      expect(next, `"${piece}" missing or out of order in:\n${text}`).toBeGreaterThan(at);
+      at = next;
+    }
+    // Bold/italic runs use the matching standard fonts.
+    const raw = pdf.toString('latin1');
+    for (const f of ['Helvetica-Bold', 'Helvetica-Oblique', 'Courier']) expect(raw).toContain(f);
+  });
+
+  it('enforces access on PDF export', async () => {
+    const alice = await login('alice@ajaia.dev');
+    const carol = await login('carol@ajaia.dev');
+    const { body } = await alice.post('/api/documents').send({}).expect(201);
+    await carol.get(`/api/documents/${body.document.id}/export.pdf`).expect(404);
+  });
+});

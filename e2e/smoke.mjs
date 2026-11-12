@@ -13,7 +13,7 @@ if (OUT) fs.mkdirSync(OUT, { recursive: true });
 const here = path.dirname(fileURLToPath(import.meta.url));
 const browser = await chromium.launch({ channel: 'chrome' });
 const errors = [];
-const mk = async () => { const c = await browser.newContext({ viewport: { width: 1280, height: 860 } }); const p = await c.newPage(); p.on('pageerror', e => errors.push(e.message)); p.on('console', m => m.type()==='error' && errors.push(m.text())); return p; };
+const mk = async () => { const c = await browser.newContext({ viewport: { width: 1280, height: 860 }, acceptDownloads: true }); const p = await c.newPage(); p.on('pageerror', e => errors.push(e.message)); p.on('console', m => m.type()==='error' && errors.push(m.text())); return p; };
 const login = async (p, name) => { await p.goto(BASE); await p.locator('.user-option', { hasText: `${name.toLowerCase()}@ajaia.dev` }).click(); await p.locator('.home-hero h1').waitFor(); };
 
 const alice = await mk();
@@ -100,11 +100,15 @@ await alice.getByText('Version restored').waitFor();
 assert.equal(await alice.locator('.ProseMirror').getByText('(Bob was here)').count(), 0);
 await bob.waitForFunction(() => !document.querySelector('.ProseMirror')?.textContent?.includes('(Bob was here)'), null, { timeout: 4000 });
 
-// Print layout (PDF export) hides app chrome.
-await alice.emulateMedia({ media: 'print' });
-assert.equal(await alice.locator('.toolbar').isVisible(), false);
-assert.equal(await alice.locator('.print-title').isVisible(), true);
-await alice.emulateMedia({ media: 'screen' });
+// PDF export downloads a generated .pdf file.
+await alice.getByRole('button', { name: 'Export' }).click();
+const [download] = await Promise.all([
+  alice.waitForEvent('download'),
+  alice.getByRole('menuitem', { name: /PDF/ }).click(),
+]);
+assert.equal(download.suggestedFilename(), 'Launch plan.pdf');
+const pdfHead = fs.readFileSync(await download.path()).subarray(0, 5).toString();
+assert.equal(pdfHead, '%PDF-');
 
 // Revoking access is reflected immediately for Bob. (His re-check gets an expected 404.)
 const errorsBeforeRevoke = errors.length;
