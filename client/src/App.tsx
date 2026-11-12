@@ -3,7 +3,7 @@ import { api, type User } from './api';
 import { Login } from './Login';
 import { Home } from './Home';
 import { EditorPage } from './EditorPage';
-import { Avatar, Logo } from './ui';
+import { Avatar, Icon, Logo } from './ui';
 
 function useHashRoute() {
   const [hash, setHash] = useState(() => window.location.hash);
@@ -24,7 +24,7 @@ export function App() {
     api.me().then((r) => setUser(r.user)).catch(() => setUser(null));
   }, []);
 
-  if (user === undefined) return <div className="center muted">Loading…</div>;
+  if (user === undefined) return <div className="center muted"><Icon name="loader" size={22} /></div>;
   if (!user) return <Login onLogin={setUser} />;
 
   const signOut = async () => {
@@ -37,10 +37,12 @@ export function App() {
     <div className="app">
       <header className="topbar">
         <Logo />
-        <div className="topbar-right">
-          <span className="muted small hide-sm">{user.email}</span>
-          <Avatar user={user} />
-          <button className="btn ghost small" onClick={signOut}>Switch user</button>
+        <div className="user-chip">
+          <span className="who hide-sm"><strong>{user.name}</strong><span>{user.email}</span></span>
+          <Avatar user={user} size={32} />
+          <button className="btn ghost small" onClick={signOut} title="Sign out and pick another demo user">
+            <Icon name="logout" size={16} /><span className="hide-sm">Switch user</span>
+          </button>
         </div>
       </header>
       {route.page === 'doc'

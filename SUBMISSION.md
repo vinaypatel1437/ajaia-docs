@@ -13,8 +13,8 @@
 | Architecture note | `ARCHITECTURE.md` |
 | AI workflow note | `AI_WORKFLOW.md` |
 | Walkthrough video URL | `VIDEO_URL.txt` |
-| Screenshots | `docs/screenshots/` (login, home, editor, share dialog, shared list, view-only, import) |
-| Automated tests | `server/test/api.test.ts` (12 API tests), `e2e/smoke.mjs` (browser flow) |
+| Screenshots | `docs/screenshots/` (login, home, editor, share dialog, shared list, view-only, import, comments, history, mobile) |
+| Automated tests | `server/test/` (17 API tests), `e2e/smoke.mjs` (browser flow covering every feature) |
 | Deployment config | `Dockerfile`, `render.yaml` |
 
 ## Status
@@ -25,12 +25,21 @@
 - Sharing by email with an owner and Can edit / Can view roles. Roles can be changed and access removed. *My documents* and *Shared with me* are separate lists, and viewers get a read-only editor.
 - SQLite persistence for documents, formatting and shares.
 - Server-side access checks, input validation, HTML sanitization, and conflict detection (409) with a resolution UI.
-- Stretch: Markdown export, and role-based permissions (viewer/editor).
+- Stretch:
+  - live collaboration indicators (presence, "is editing", instant sync over SSE)
+  - comments on selected text
+  - version history with preview and restore
+  - export to Markdown and PDF
+  - role-based permissions (editor/viewer)
 
 **Partial / known limitations**
-- No real-time co-editing. Concurrent edits are detected and resolved, and idle clients pick up changes within about 8s.
+- No simultaneous co-editing (CRDT). Concurrent saves are detected and resolved, and other users' changes arrive live over SSE.
+- Suggestion mode was not built. Comments cover the "propose a change" need.
+- Comments are flat (no threads or @mentions), and the quoted text is not highlighted inside the document.
 - Auth is mocked with seeded users.
 - .docx images and tables are not imported.
 - On Render's free plan, data resets when the instance redeploys or spins down. Mount a volume at `/data` for durability.
 
-**Next 2–4 hours:** version history (snapshots per version), presence indicators over SSE, e2e in CI, real auth plus Postgres.
+**Intentionally deprioritized:** see the "Intentionally deprioritized" tables in `ARCHITECTURE.md`, which list each cut, why, and what the product does instead.
+
+**Next 2–4 hours:** in-text comment highlights and threads, a diff view between versions, e2e in CI, real auth plus Postgres.

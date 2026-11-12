@@ -9,7 +9,7 @@ export type Role = 'owner' | 'editor' | 'viewer';
 export interface UserRow { id: string; email: string; name: string; color: string }
 export interface DocumentRow {
   id: string; owner_id: string; title: string; content: string;
-  version: number; created_at: string; updated_at: string;
+  version: number; created_at: string; updated_at: string; last_editor_id: string | null;
 }
 
 /** Demo accounts. Auth is mocked: picking one of these "logs you in". */
@@ -44,7 +44,36 @@ CREATE TABLE IF NOT EXISTS document_shares (
   PRIMARY KEY (document_id, user_id)
 );
 CREATE INDEX IF NOT EXISTS idx_shares_user ON document_shares(user_id);
+CREATE TABLE IF NOT EXISTS document_versions (
+  id TEXT PRIMARY KEY,
+  document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  version INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  content TEXT NOT NULL,
+  author_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_versions_doc ON document_versions(document_id, created_at);
+CREATE TABLE IF NOT EXISTS comments (
+  id TEXT PRIMARY KEY,
+  document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  author_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  body TEXT NOT NULL,
+  quote TEXT,
+  resolved INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_comments_doc ON comments(document_id, created_at);
 `;
+
+/** Additive column migrations for databases created by earlier builds. */
+function migrate(db: DB) {
+  const cols = (db.prepare('PRAGMA table_info(documents)').all() as { name: string }[]).map((c) => c.name);
+  if (!cols.includes('last_editor_id')) {
+    db.exec('ALTER TABLE documents ADD COLUMN last_editor_id TEXT REFERENCES users(id) ON DELETE SET NULL');
+    db.exec('UPDATE documents SET last_editor_id = owner_id');
+  }
+}
 
 export function openDb(file: string): DB {
   if (file !== ':memory:') fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -52,6 +81,7 @@ export function openDb(file: string): DB {
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   db.exec(SCHEMA);
+  migrate(db);
   seed(db);
   return db;
 }
@@ -78,8 +108,10 @@ function seed(db: DB) {
   });
   const docId = randomUUID();
   db.prepare(
-    'INSERT INTO documents (id, owner_id, title, content, version, created_at, updated_at) VALUES (?, ?, ?, ?, 1, ?, ?)',
-  ).run(docId, ids[0], 'Welcome to Ajaia Docs', WELCOME_HTML, now, now);
+    'INSERT INTO documents (id, owner_id, title, content, version, created_at, updated_at, last_editor_id) VALUES (?, ?, ?, ?, 1, ?, ?, ?)',
+  ).run(docId, ids[0], 'Welcome to Ajaia Docs', WELCOME_HTML, now, now, ids[0]);
+  db.prepare('INSERT INTO comments (id, document_id, author_id, body, quote, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(randomUUID(), docId, ids[1], 'Should we add a section on keyboard shortcuts?', 'Try these', now);
   db.prepare('INSERT INTO document_shares (document_id, user_id, role, created_at) VALUES (?, ?, ?, ?)')
     .run(docId, ids[1], 'editor', now);
 }

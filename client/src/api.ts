@@ -9,6 +9,21 @@ export interface SharedSummary {
   id: string; title: string; updatedAt: string; role: 'viewer' | 'editor'; ownerName: string; ownerColor: string;
 }
 export interface Share extends User { role: 'viewer' | 'editor' }
+export type PresenceUser = Pick<User, 'id' | 'name' | 'color'>;
+export interface VersionSummary {
+  id: string; version: number; title: string; createdAt: string;
+  authorId: string | null; authorName: string | null; authorColor: string | null;
+}
+export interface Comment {
+  id: string; body: string; quote: string | null; resolved: boolean; createdAt: string;
+  authorId: string; authorName: string; authorColor: string;
+}
+export type CollabEvent =
+  | { type: 'presence'; users: PresenceUser[] }
+  | { type: 'saved'; version: number; by: PresenceUser }
+  | { type: 'activity'; user: PresenceUser }
+  | { type: 'comments' }
+  | { type: 'access' };
 
 export class ApiError extends Error {
   constructor(public status: number, message: string, public body: any) { super(message); }
@@ -55,6 +70,20 @@ export const api = {
   share: (id: string, email: string, role: 'viewer' | 'editor') =>
     call<{ shares: Share[] }>('POST', `/api/documents/${id}/shares`, { email, role }),
   unshare: (id: string, userId: string) => call<{ shares: Share[] }>('DELETE', `/api/documents/${id}/shares/${userId}`),
+
+  versions: (id: string) => call<{ versions: VersionSummary[] }>('GET', `/api/documents/${id}/versions`),
+  version: (id: string, vid: string) =>
+    call<{ version: { id: string; title: string; content: string; createdAt: string } }>('GET', `/api/documents/${id}/versions/${vid}`),
+  restore: (id: string, vid: string) => call<{ document: Doc }>('POST', `/api/documents/${id}/versions/${vid}/restore`),
+
+  comments: (id: string) => call<{ comments: Comment[] }>('GET', `/api/documents/${id}/comments`),
+  addComment: (id: string, body: string, quote?: string) =>
+    call<{ comments: Comment[] }>('POST', `/api/documents/${id}/comments`, { body, quote }),
+  resolveComment: (id: string, cid: string, resolved: boolean) =>
+    call<{ comments: Comment[] }>('PATCH', `/api/documents/${id}/comments/${cid}`, { resolved }),
+  deleteComment: (id: string, cid: string) => call<{ comments: Comment[] }>('DELETE', `/api/documents/${id}/comments/${cid}`),
+
+  activity: (id: string) => call<void>('POST', `/api/documents/${id}/activity`),
 };
 
 export const ACCEPTED_UPLOADS = '.txt,.md,.markdown,.docx';

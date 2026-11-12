@@ -14,7 +14,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const browser = await chromium.launch({ channel: 'chrome' });
 const errors = [];
 const mk = async () => { const c = await browser.newContext({ viewport: { width: 1280, height: 860 } }); const p = await c.newPage(); p.on('pageerror', e => errors.push(e.message)); p.on('console', m => m.type()==='error' && errors.push(m.text())); return p; };
-const login = async (p, name) => { await p.goto(BASE); await p.getByRole('button', { name: new RegExp(name) }).click(); await p.getByText(/Hi, /).waitFor(); };
+const login = async (p, name) => { await p.goto(BASE); await p.locator('.user-option', { hasText: `${name.toLowerCase()}@ajaia.dev` }).click(); await p.locator('.home-hero h1').waitFor(); };
 
 const alice = await mk();
 await alice.goto(BASE); if (OUT) await alice.screenshot({ path: `${OUT}/01-login.png` });
@@ -22,7 +22,7 @@ await login(alice, 'Alice');
 if (OUT) await alice.screenshot({ path: `${OUT}/02-home-alice.png` });
 
 // Create + rename + format
-await alice.getByRole('button', { name: '+ New document' }).click();
+await alice.getByRole('button', { name: 'New document' }).click();
 await alice.locator('.ProseMirror').waitFor();
 await alice.getByLabel('Document title').fill('Launch plan');
 await alice.locator('.ProseMirror').click();
@@ -69,7 +69,50 @@ await bob.reload(); await bob.locator('.ProseMirror').waitFor();
 assert.equal(await bob.locator('.ProseMirror').getAttribute('contenteditable'), 'true');
 await bob.locator('.ProseMirror p').first().click(); await bob.keyboard.press('End'); await bob.keyboard.type(' (Bob was here)');
 await bob.getByText(/^Saved/).waitFor({ timeout: 5000 });
-await alice.getByText('(Bob was here)').waitFor({ timeout: 15000 });
+// Live sync over SSE: well under the 30s fallback poll.
+await alice.getByText('(Bob was here)').waitFor({ timeout: 4000 });
+// Presence: Alice sees Bob in the document.
+await alice.locator('.presence-avatar[title^="Bob Okafor"]').waitFor({ timeout: 4000 });
+
+// Comments: Bob comments on a selection; Alice's comment count updates live.
+await bob.locator('.ProseMirror strong').first().click({ position: { x: 1, y: 8 } });
+await bob.keyboard.press('Home');
+for (let i = 0; i < 'Bold goal'.length; i++) await bob.keyboard.press('Shift+ArrowRight');
+await bob.getByRole('button', { name: 'Comments' }).click();
+await bob.locator('.comment-form .quote').waitFor();
+await bob.getByRole('textbox', { name: 'Comment' }).fill('Can we make this goal more specific?');
+await bob.getByRole('button', { name: 'Comment', exact: true }).click();
+await bob.locator('.comment-body', { hasText: 'more specific' }).waitFor();
+await alice.getByRole('button', { name: 'Comments (1)' }).waitFor({ timeout: 4000 });
+await alice.getByRole('button', { name: 'Comments (1)' }).click();
+await alice.locator('.comment button.quote').first().click(); // jump to the quoted text
+if (OUT) await alice.screenshot({ path: `${OUT}/08-comments.png` });
+await alice.getByRole('button', { name: 'Resolve' }).click();
+await alice.getByRole('button', { name: 'Comments', exact: true }).waitFor();
+
+// History: restore Alice's version from before Bob's edit; Bob receives it live.
+await alice.getByRole('button', { name: 'History' }).click();
+await alice.locator('.version-list li').nth(1).locator('button').click();
+await alice.getByText(/Viewing the version from/).waitFor();
+if (OUT) await alice.screenshot({ path: `${OUT}/09-history.png` });
+await alice.getByRole('button', { name: 'Restore this version' }).click();
+await alice.getByText('Version restored').waitFor();
+assert.equal(await alice.locator('.ProseMirror').getByText('(Bob was here)').count(), 0);
+await bob.waitForFunction(() => !document.querySelector('.ProseMirror')?.textContent?.includes('(Bob was here)'), null, { timeout: 4000 });
+
+// Print layout (PDF export) hides app chrome.
+await alice.emulateMedia({ media: 'print' });
+assert.equal(await alice.locator('.toolbar').isVisible(), false);
+assert.equal(await alice.locator('.print-title').isVisible(), true);
+await alice.emulateMedia({ media: 'screen' });
+
+// Revoking access is reflected immediately for Bob. (His re-check gets an expected 404.)
+const errorsBeforeRevoke = errors.length;
+await alice.getByRole('button', { name: 'Share' }).click();
+await alice.getByRole('button', { name: 'Remove' }).click();
+await alice.getByText('Not shared with anyone yet.').waitFor();
+await alice.keyboard.press('Escape');
+await bob.getByText('Your access to this document was removed').waitFor({ timeout: 4000 });
 
 
 // Import markdown
@@ -81,7 +124,8 @@ if (OUT) await alice.screenshot({ path: `${OUT}/07-imported.png` });
 // Unsupported file
 await alice.goto(BASE);
 await alice.locator('input[type=file]').setInputFiles({ name: 'x.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF') });
-assert.match(await alice.getByRole('alert').textContent(), /isn't supported/);
+assert.match(await alice.getByRole('alert').textContent(), /supported file/);
 await browser.close();
-assert.deepEqual(errors, [], 'browser console errors');
+const unexpected = errors.filter((e, i) => i < errorsBeforeRevoke || !/404/.test(e));
+assert.deepEqual(unexpected, [], 'browser console errors');
 console.log('e2e smoke: all flows passed');
